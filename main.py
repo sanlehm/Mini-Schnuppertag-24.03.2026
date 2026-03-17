@@ -1,183 +1,124 @@
-import math
-import random
-
 import pygame
-from pygame import mixer
+import spiel_engine
 
-# Intialize the pygame
-pygame.init()
+# ===================================================================================
+# ANPASSUNGEN FÜR DEN SCHNUPPERTAG
+# ===================================================================================
+# In diesem Bereich könnt ihr das Spiel nach euren Wünschen anpassen.
+# Ändert die Bilder, die Geschwindigkeiten oder die Tasten für die Steuerung.
+# ===================================================================================
 
-# create the screen
-screen = pygame.display.set_mode((800, 600))
+# --- 1. Bilder und Sounds anpassen ---
+# Ändert die Dateinamen, um eure eigenen Bilder und Sounds zu verwenden.
+# Die Bilder müssen im selben Ordner wie diese Datei sein.
+PLAYER_IMG_PATHS = ['assets/images/robin.png', 'assets/images/player.png', 'assets/images/robin.png'] # Aufgabe 1: Ändere hier den Bild-Pfad für dein Raumschiff
+player_skin_index = 0
+ENEMY_IMG_PATH = 'assets/images/enemy.png'
+PLAYER_BULLET_IMG_PATH = 'assets/images/Laser_payer.png'
+ENEMY_BULLET_IMG_PATH = 'assets/images/Laser_enemy.png'
+BOSS_IMG_PATH = 'assets/images/Boss.png'
+ICON_PATH = 'assets/images/enemy.png'
+BACKGROUND_IMG_PATH = 'assets/images/background.png'
+LIFE_POWERUP_IMG_PATH = 'assets/images/life_powerup.png'
+SHIELD_POWERUP_IMG_PATH = 'assets/images/shield_powerup.png'
 
-# Background
-background = pygame.image.load('background.png')
+BACKGROUND_SOUND_PATH = 'assets/sounds/background.wav'
+BULLET_SOUND_PATH = 'assets/sounds/laser.wav'
+EXPLOSION_SOUND_PATH = 'assets/sounds/explosion.wav'
 
-# Sound
-mixer.music.load("background.wav")
-mixer.music.play(-1)
-
-# Caption and Icon
-pygame.display.set_caption("Space Invader")
-icon = pygame.image.load('ufo.png')
-pygame.display.set_icon(icon)
-
-# Player
-playerImg = pygame.image.load('player.png')
-playerX = 370
-playerY = 480
-playerX_change = 0
-
-# Enemy
-enemyImg = []
-enemyX = []
-enemyY = []
-enemyX_change = []
-enemyY_change = []
-num_of_enemies = 6
-
-for i in range(num_of_enemies):
-    enemyImg.append(pygame.image.load('enemy.png'))
-    enemyX.append(random.randint(0, 736))
-    enemyY.append(random.randint(50, 150))
-    enemyX_change.append(4)
-    enemyY_change.append(40)
-
-# Bullet
-
-# Ready - You can't see the bullet on the screen
-# Fire - The bullet is currently moving
-
-bulletImg = pygame.image.load('bullet.png')
-bulletX = 0
-bulletY = 480
-bulletX_change = 0
-bulletY_change = 10
-bullet_state = "ready"
-
-# Score
-
-score_value = 0
-font = pygame.font.Font('freesansbold.ttf', 32)
-
-textX = 10
-testY = 10
-
-# Game Over
-over_font = pygame.font.Font('freesansbold.ttf', 64)
+ULT_ACTIVE = False # Aufgabe 5: Variable für den Turbo-Status
+ULT_START = 0      # Aufgabe 5: Variable für die Startzeit des Turbos
 
 
-def show_score(x, y):
-    score = font.render("Score : " + str(score_value), True, (255, 255, 255))
-    screen.blit(score, (x, y))
+# --- 2. Spiel-Einstellungen anpassen --- # Aufgabe 2: Ändere hier die Werte, um das Spiel anzupassen.
+# Ändert die Zahlen, um das Spiel schwerer oder leichter zu machen.
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 600
+PLAYER_SPEED_X = 5          # Geschwindigkeit des Spielers nach links/rechts
+PLAYER_SPEED_Y = 4          # Geschwindigkeit des Spielers nach oben/unten
+BULLET_SPEED = 10           # Geschwindigkeit der Spieler-Kugeln
+PLAYER_LIVES_START = 3      # Anzahl der Leben am Anfang
+TEXT_COLOR = (255, 255, 255) # Farbe für Score, Level und Leben (Weiss)
+
+# Power-Up Einstellungen
+PLAYER_SIZE = (64, 64)      # Grösse des Spieler-Bildes in Pixel (Breite, Höhe)
+ENEMY_SIZE = (64, 64)       # Grösse des Gegner-Bildes in Pixel (Breite, Höhe)
+PLAYER_BULLET_SIZE = (32,32) # Grösse des Spieler-Kugel-Bildes in Pixel (Breite, Höhe)
+ENEMY_BULLET_SIZE = (32, 32)  # Grösse des Gegner-Kugel-Bildes in Pixel (Breite, Höhe)
+BOSS_SIZE = (128, 128)      # Grösse des Boss-Bildes in Pixel (Breite, Höhe)
+POWERUP_SIZE = (30, 30)       # Grösse der Power-Up Bilder in Pixel (Breite, Höhe)
+SHIELD_DURATION = 5000        # Dauer des Schilds in Millisekunden (5000 = 5 Sekunden)
+POWERUP_DROP_CHANCE = 10      # Chance, dass ein Power-Up erscheint (1 zu 10)
+INVINCIBILITY_DURATION = 2000 # Dauer der Unverwundbarkeit nach Treffer in ms (2000 = 2s)
 
 
-def game_over_text():
-    over_text = over_font.render("GAME OVER", True, (255, 255, 255))
-    screen.blit(over_text, (200, 250))
+# --- 3. Steuerung programmieren ---
+# Hier könnt ihr die Tasten für die Steuerung des Spielers festlegen.
+
+def handle_input(engine, event):
+    global ULT_ACTIVE, ULT_START
+    player = engine.player
+    
+    # Aufgabe 5: Turbo nach 2 Sekunden ausschalten
+    if ULT_ACTIVE and pygame.time.get_ticks() - ULT_START > 2000:
+        ULT_ACTIVE = False
+        print("Turbo vorbei!")
+    
+    if event.type == pygame.KEYDOWN:
+        if engine.game_state != engine.config.STATE_PLAYING:
+            if event.key == pygame.K_RETURN:
+                engine.restart_game()
+            return
+
+        # Aufgabe 4: Code für den Skin-Wechsel
+        if event.key == pygame.K_e:
+            global player_skin_index
+            player_skin_index = (player_skin_index + 1) % len(PLAYER_IMG_PATHS)
+            loaded_img = pygame.image.load(PLAYER_IMG_PATHS[player_skin_index]).convert_alpha()
+            player.img = pygame.transform.scale(loaded_img, PLAYER_SIZE)
+
+        # Aufgabe 5: Code für die Aktivierung des Turbos
+        if event.key == pygame.K_u and not ULT_ACTIVE:
+            ULT_ACTIVE = True
+            ULT_START = pygame.time.get_ticks()
+            print("Turbo aktiviert!")
+
+        # Aufgabe 5: Geschwindigkeit verdoppeln, wenn Turbo aktiv ist
+        speed = 2 if ULT_ACTIVE else 1
+        # Aufgabe 3: Steuerung mit W, A, S, D (KEYDOWN)
+        if event.key == pygame.K_a: player.x_change = -PLAYER_SPEED_X * speed
+        if event.key == pygame.K_d: player.x_change = PLAYER_SPEED_X * speed
+        if event.key == pygame.K_w: player.y_change = -PLAYER_SPEED_Y * speed
+        if event.key == pygame.K_s: player.y_change = PLAYER_SPEED_Y * speed
+        if event.key == pygame.K_SPACE: engine.fire_bullet(player.x, player.y)
+    if event.type == pygame.KEYUP:
+        # Aufgabe 3: Bewegung stoppen, wenn Tasten losgelassen werden (KEYUP)
+        if event.key in (pygame.K_a, pygame.K_d): player.x_change = 0
+        if event.key in (pygame.K_w, pygame.K_s): player.y_change = 0
 
 
-def player(x, y):
-    screen.blit(playerImg, (x, y))
+# ===================================================================================
+# HIER BEGINNT DIE SPIEL-ENGINE (Normalerweise nicht ändern)
+# ===================================================================================
 
+# --- Interne Konfiguration (nicht für Teilnehmer gedacht) ---
+ENEMY_SPEED_X = 4
+ENEMY_SPEED_Y = 40
+ENEMY_BULLET_SPEED = 7
+BOSS_BULLET_SPEED = 10
+POWERUP_SPEED = 3
+NUM_OF_ENEMIES = 6
+GAME_OVER_Y_LIMIT = 440
 
-def enemy(x, y, i):
-    screen.blit(enemyImg[i], (x, y))
+BOSS_HEALTH_START = 25
+BULLET_COOLDOWN = 300
+STATE_PLAYING, STATE_GAME_OVER, STATE_VICTORY = 0, 1, 2
 
+# --- Spielstart ---
 
-def fire_bullet(x, y):
-    global bullet_state
-    bullet_state = "fire"
-    screen.blit(bulletImg, (x + 16, y + 10))
-
-
-def isCollision(enemyX, enemyY, bulletX, bulletY):
-    distance = math.sqrt(math.pow(enemyX - bulletX, 2) + (math.pow(enemyY - bulletY, 2)))
-    if distance < 27:
-        return True
-    else:
-        return False
-
-
-# Game Loop
-running = True
-while running:
-
-    # RGB = Red, Green, Blue
-    screen.fill((0, 0, 0))
-    # Background Image
-    screen.blit(background, (0, 0))
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-
-        # if keystroke is pressed check whether its right or left
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_LEFT:
-                playerX_change = -5
-            if event.key == pygame.K_RIGHT:
-                playerX_change = 5
-            if event.key == pygame.K_SPACE:
-                if bullet_state is "ready":
-                    bulletSound = mixer.Sound("laser.wav")
-                    bulletSound.play()
-                    # Get the current x cordinate of the spaceship
-                    bulletX = playerX
-                    fire_bullet(bulletX, bulletY)
-
-        if event.type == pygame.KEYUP:
-            if event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:
-                playerX_change = 0
-
-    # 5 = 5 + -0.1 -> 5 = 5 - 0.1
-    # 5 = 5 + 0.1
-
-    playerX += playerX_change
-    if playerX <= 0:
-        playerX = 0
-    elif playerX >= 736:
-        playerX = 736
-
-    # Enemy Movement
-    for i in range(num_of_enemies):
-
-        # Game Over
-        if enemyY[i] > 440:
-            for j in range(num_of_enemies):
-                enemyY[j] = 2000
-            game_over_text()
-            break
-
-        enemyX[i] += enemyX_change[i]
-        if enemyX[i] <= 0:
-            enemyX_change[i] = 4
-            enemyY[i] += enemyY_change[i]
-        elif enemyX[i] >= 736:
-            enemyX_change[i] = -4
-            enemyY[i] += enemyY_change[i]
-
-        # Collision
-        collision = isCollision(enemyX[i], enemyY[i], bulletX, bulletY)
-        if collision:
-            explosionSound = mixer.Sound("explosion.wav")
-            explosionSound.play()
-            bulletY = 480
-            bullet_state = "ready"
-            score_value += 1
-            enemyX[i] = random.randint(0, 736)
-            enemyY[i] = random.randint(50, 150)
-
-        enemy(enemyX[i], enemyY[i], i)
-
-    # Bullet Movement
-    if bulletY <= 0:
-        bulletY = 480
-        bullet_state = "ready"
-
-    if bullet_state is "fire":
-        fire_bullet(bulletX, bulletY)
-        bulletY -= bulletY_change
-
-    player(playerX, playerY)
-    show_score(textX, testY)
-    pygame.display.update()
+if __name__ == '__main__':
+    config = type('Config', (), locals())()
+    game = spiel_engine.GameEngine(config, handle_input)
+    loaded_img = pygame.image.load(PLAYER_IMG_PATHS[player_skin_index]).convert_alpha()
+    game.player.img = pygame.transform.scale(loaded_img, PLAYER_SIZE)
+    game.run()
