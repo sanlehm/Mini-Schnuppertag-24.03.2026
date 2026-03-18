@@ -215,10 +215,11 @@ class GameEngine:
                                 self.power_ups.append(self.PowerUp(self, enemy_x, enemy_y, ptype, img))
                         break
 
-        # Bullet movement
-        for bullet in self.bullets[:]:
-            if bullet.y <= 0: self.bullets.remove(bullet)
-            bullet.y -= bullet.y_change
+        # Bullet movement (eingefroren wenn Time Stop aktiv)
+        if not self.TIME_STOP_ACTIVE:
+            for bullet in self.bullets[:]:
+                if bullet.y <= 0: self.bullets.remove(bullet)
+                bullet.y -= bullet.y_change
 
         # Enemy bullet movement (Aufgabe 6: nur wenn Time Stop nicht aktiv ist)
         if not self.TIME_STOP_ACTIVE:
