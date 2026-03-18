@@ -70,7 +70,7 @@ class GameEngine:
         self.current_level = 1
         self.player_lives = config.PLAYER_LIVES_START
         self.last_bullet_time = 0
-        
+
         self.player_is_shielded = False
         self.shield_start_time = 0
         self.player_is_invincible = False
@@ -79,6 +79,10 @@ class GameEngine:
         # Ultimate/Turbo
         self.ULT_ACTIVE = False
         self.ULT_START = 0
+
+        # Aufgabe 6: Time Stop
+        self.TIME_STOP_ACTIVE = False
+        self.TIME_STOP_START = 0
 
         # Game Objects
         self.player = self.Player(self, self.player_img, 370, 480)
@@ -130,6 +134,13 @@ class GameEngine:
 
         current_time = pygame.time.get_ticks()
 
+        # Aufgabe 6: Time Stop
+        # Nicht aus config lesen: config ist ein Snapshot der Start-Variablen.
+        # Der Input-Handler soll stattdessen direkt engine.TIME_STOP_ACTIVE/START setzen.
+        # (Falls es noch nicht gesetzt wurde, bleiben die __init__-Defaults aktiv.)
+        self.TIME_STOP_ACTIVE = getattr(self, 'TIME_STOP_ACTIVE', False)
+        self.TIME_STOP_START = getattr(self, 'TIME_STOP_START', 0)
+
         # Player movement and boundaries
         self.player.x += self.player.x_change
         self.player.y += self.player.y_change
@@ -166,60 +177,70 @@ class GameEngine:
                     if self.game_state == self.config.STATE_GAME_OVER: return
                     break # Stop checking after one hit
 
-        # Enemy logic
-        for enemy in self.enemies[:]:
-            enemy.x += enemy.x_change
-            if enemy.x <= 0 or enemy.x >= self.config.SCREEN_WIDTH - enemy.img.get_width():
-                enemy.x_change *= -1
-                if not isinstance(enemy, self.Boss): enemy.y += enemy.y_change
+        # Enemy logic (Aufgabe 6: nur wenn Time Stop nicht aktiv ist)
+        if not self.TIME_STOP_ACTIVE:
+            for enemy in self.enemies[:]:
+                enemy.x += enemy.x_change
+                if enemy.x <= 0 or enemy.x >= self.config.SCREEN_WIDTH - enemy.img.get_width():
+                    enemy.x_change *= -1
+                    if not isinstance(enemy, self.Boss): enemy.y += enemy.y_change
 
-            # Wenn ein normaler Gegner (kein Boss) unter den Bildschirm geht, 
-            # setze ihn wieder oben (Respawn)
-            if not isinstance(enemy, self.Boss) and enemy.y > self.config.SCREEN_HEIGHT:
-                enemy.y = random.randint(50, 150)
-                enemy.x = random.randint(0, self.config.SCREEN_WIDTH - enemy.img.get_width())
+                # Wenn ein normaler Gegner (kein Boss) unter den Bildschirm geht,
+                # setze ihn wieder oben (Respawn)
+                if not isinstance(enemy, self.Boss) and enemy.y > self.config.SCREEN_HEIGHT:
+                    enemy.y = random.randint(50, 150)
+                    enemy.x = random.randint(0, self.config.SCREEN_WIDTH - enemy.img.get_width())
 
-            if isinstance(enemy, self.Boss): self.boss_fire(enemy)
-            else: self.enemy_fire(enemy)
+                if isinstance(enemy, self.Boss): self.boss_fire(enemy)
+                else: self.enemy_fire(enemy)
 
-            # Player bullet collision with enemy
-            for bullet in self.bullets[:]:
-                if enemy.is_colliding(bullet):
-                    self.explosion_sound.play()
-                    self.bullets.remove(bullet)
-                    if isinstance(enemy, self.Boss):
-                        self.boss.health -= 1
-                        self.score_value += 5
-                        if self.boss.health <= 0:
+                # Player bullet collision with enemy
+                for bullet in self.bullets[:]:
+                    if enemy.is_colliding(bullet):
+                        self.explosion_sound.play()
+                        self.bullets.remove(bullet)
+                        if isinstance(enemy, self.Boss):
+                            self.boss.health -= 1
+                            self.score_value += 5
+                            if self.boss.health <= 0:
+                                self.enemies.remove(enemy)
+                                self.score_value += 50
+                        else:
+                            self.score_value += 1
+                            enemy_x, enemy_y = enemy.x, enemy.y
                             self.enemies.remove(enemy)
-                            self.score_value += 50
-                    else:
-                        self.score_value += 1
-                        enemy_x, enemy_y = enemy.x, enemy.y
-                        self.enemies.remove(enemy)
-                        if random.randint(1, self.config.POWERUP_DROP_CHANCE) == 1:
-                            ptype = random.choice(['LIFE', 'SHIELD'])
-                            img = self.life_powerup_img if ptype == 'LIFE' else self.shield_powerup_img
-                            self.power_ups.append(self.PowerUp(self, enemy_x, enemy_y, ptype, img))
-                    break
-        
+                            if random.randint(1, self.config.POWERUP_DROP_CHANCE) == 1:
+                                ptype = random.choice(['LIFE', 'SHIELD'])
+                                img = self.life_powerup_img if ptype == 'LIFE' else self.shield_powerup_img
+                                self.power_ups.append(self.PowerUp(self, enemy_x, enemy_y, ptype, img))
+                        break
+
         # Bullet movement
         for bullet in self.bullets[:]:
             if bullet.y <= 0: self.bullets.remove(bullet)
             bullet.y -= bullet.y_change
 
-        for bullet in self.enemy_bullets[:]:
-            if bullet.y > self.config.SCREEN_HEIGHT: self.enemy_bullets.remove(bullet)
+        # Enemy bullet movement (Aufgabe 6: nur wenn Time Stop nicht aktiv ist)
+        if not self.TIME_STOP_ACTIVE:
+            for bullet in self.enemy_bullets[:]:
+                bullet.y += bullet.y_change
+                bullet.x += bullet.x_change
+                if bullet.y > self.config.SCREEN_HEIGHT:
+                    self.enemy_bullets.remove(bullet)
 
-        # Power-up movement and collision
-        for pu in self.power_ups[:]:
-            if pu.y > self.config.SCREEN_HEIGHT: self.power_ups.remove(pu); continue
-            if pu.is_colliding(self.player):
-                if pu.type == 'LIFE': self.player_lives += 1
-                elif pu.type == 'SHIELD':
-                    self.player_is_shielded = True
-                    self.shield_start_time = pygame.time.get_ticks()
-                self.power_ups.remove(pu)
+        # Power-up movement and collision (Aufgabe 6: nur wenn Time Stop nicht aktiv ist)
+        if not self.TIME_STOP_ACTIVE:
+            for pu in self.power_ups[:]:
+                pu.y += self.config.POWERUP_SPEED
+                if pu.y > self.config.SCREEN_HEIGHT:
+                    self.power_ups.remove(pu)
+                    continue
+                if pu.is_colliding(self.player):
+                    if pu.type == 'LIFE': self.player_lives += 1
+                    elif pu.type == 'SHIELD':
+                        self.player_is_shielded = True
+                        self.shield_start_time = pygame.time.get_ticks()
+                    self.power_ups.remove(pu)
 
         # Level progression
         if not self.enemies:
@@ -245,6 +266,12 @@ class GameEngine:
         self.show_score(10, 10)
         self.show_level(10, 50)
         self.show_lives(10, 90)
+
+        # Aufgabe 6: Time Stop Effekt anzeigen
+        if self.TIME_STOP_ACTIVE:
+            remaining_time = max(0, (3000 - (pygame.time.get_ticks() - self.TIME_STOP_START)) / 1000)
+            time_stop_text = self.font.render(f"TIME STOP: {remaining_time:.1f}s", True, (0, 255, 255))
+            self.screen.blit(time_stop_text, (self.config.SCREEN_WIDTH - 350, 10))
 
         if self.game_state == self.config.STATE_GAME_OVER: self.game_over_text()
 
@@ -377,8 +404,6 @@ class GameEngine:
             self.y_change = speed
             self.x_change = x_change
         def draw(self):
-            self.x += self.x_change
-            self.y += self.y_change
             self.rect.topleft = (self.x, self.y)
             self.engine.screen.blit(self.img, (self.x, self.y))
 
@@ -391,7 +416,6 @@ class GameEngine:
             self.y = center_y
             self.rect = self.img.get_rect(topleft=(self.x, self.y))
         def draw(self):
-            self.y += self.engine.config.POWERUP_SPEED
             self.rect.topleft = (self.x, self.y)
             self.engine.screen.blit(self.img, (self.x, self.y))
         def is_colliding(self, player):
