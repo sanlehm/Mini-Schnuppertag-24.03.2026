@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# IDEs / Editor
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Tooling / assistants
+.claude/
+
+# Pygame / project runtime
+highscore.txt
+
+# Word temp files
+~$*.docx

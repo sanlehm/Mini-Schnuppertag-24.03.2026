@@ -2,7 +2,7 @@ import pygame
 import spiel_engine
 
 # Aufgabe 1: Trage hier den Dateinamen deines Raumschiff-Bildes ein
-PLAYER_IMG_PATH = 'assets/images/player.png'
+PLAYER_IMG_PATH = 'assets/'
 
 ENEMY_IMG_PATH = 'assets/images/enemy.png'
 PLAYER_BULLET_IMG_PATH = 'assets/images/Laser_payer.png'
