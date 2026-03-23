@@ -2,7 +2,7 @@ import pygame
 import spiel_engine
 
 # Aufgabe 1: Trage hier den Dateinamen deines Raumschiff-Bildes ein
-PLAYER_IMG_PATH = 'assets/'
+PLAYER_IMG_PATH = 'assets/images/?????'
 
 ENEMY_IMG_PATH = 'assets/images/enemy.png'
 PLAYER_BULLET_IMG_PATH = 'assets/images/Laser_payer.png'
@@ -65,7 +65,7 @@ def handle_input(engine, event):
                 engine.restart_game()
             return
 
-        # Aufgabe 3: Ersetze K_LEFT/K_RIGHT durch K_a/K_d und K_UP/K_DOWN durch K_w/K_s
+        # Aufgabe 3
         if event.key == pygame.K_LEFT:  player.x_change = -PLAYER_SPEED_X
         if event.key == pygame.K_RIGHT: player.x_change = PLAYER_SPEED_X
         if event.key == pygame.K_UP:    player.y_change = -PLAYER_SPEED_Y
@@ -79,7 +79,7 @@ def handle_input(engine, event):
         # Aufgabe 5: HIER Turbo (U-Taste) einfügen
 
     if event.type == pygame.KEYUP:
-        # Aufgabe 3: Passe auch hier K_LEFT/K_RIGHT auf K_a/K_d an (usw.)
+        # Aufgabe 3
         if event.key in (pygame.K_LEFT, pygame.K_RIGHT): player.x_change = 0
         if event.key in (pygame.K_UP, pygame.K_DOWN):    player.y_change = 0
 
